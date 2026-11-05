@@ -34,10 +34,17 @@ const MELODY = [
  */
 export function createMelody() {
   const volume = new Tone.Volume(-Infinity).toDestination();
-  // Freeverb es un reverb algorítmico (filtros comb/allpass) en vez de uno
-  // por convolución: no depende de renderizar un OfflineAudioContext al
-  // crearse, que es un punto conocido de fallas/incompatibilidad en Safari/iOS.
-  const reverb = new Tone.Freeverb({ roomSize: 0.8, dampening: 3000, wet: 0.35 }).connect(volume);
+  // Nada de Tone.Reverb (falla al crearse en iOS/Safari: depende de un
+  // OfflineAudioContext) ni de Tone.Freeverb (suena bien, pero corre su
+  // propio DSP en JavaScript puro vía AudioWorklet — 8 filtros en paralelo,
+  // sample por sample — y eso satura la CPU en celulares Android de gama
+  // media/tablets tras unos minutos sonando, produciendo un chillido
+  // digital). FeedbackDelay + un filtro de calidez son 100% nodos nativos
+  // del navegador (igual que el Chorus de abajo), así que no tienen ese
+  // costo de CPU en ninguna plataforma.
+  const reverb = new Tone.FeedbackDelay({ delayTime: 0.18, feedback: 0.32, wet: 0.3 });
+  const warmth = new Tone.Filter({ type: "lowpass", frequency: 3200 }).connect(volume);
+  reverb.connect(warmth);
   const chorus = new Tone.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.4, wet: 0.25 })
     .connect(reverb)
     .start();
@@ -123,6 +130,7 @@ export function createMelody() {
       lead.dispose();
       chorus.dispose();
       reverb.dispose();
+      warmth.dispose();
       volume.dispose();
       Tone.getTransport().stop();
       Tone.getTransport().cancel();
