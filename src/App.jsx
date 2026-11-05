@@ -5,6 +5,7 @@ import LetterSection from "./components/sections/LetterSection";
 import LittleThingsSection from "./components/sections/LittleThingsSection";
 import GameSection from "./components/sections/GameSection";
 import Footer from "./components/sections/Footer";
+import MusicToggle from "./components/ui/MusicToggle";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <LittleThingsSection />
       <GameSection />
       <Footer />
+      <MusicToggle />
     </div>
   );
 }
