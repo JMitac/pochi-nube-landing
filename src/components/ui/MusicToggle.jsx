@@ -41,9 +41,11 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
       const melody = ensureMelody();
       await melody.play();
       setPlaying(true);
-    } catch {
-      // El navegador todavía no lo permite; seguimos esperando la
-      // próxima interacción.
+    } catch (err) {
+      // El navegador todavía no lo permite (o la creación del audio falló);
+      // lo dejamos en consola para poder diagnosticarlo y seguimos
+      // esperando la próxima interacción.
+      console.error("No se pudo iniciar la música automáticamente:", err);
     } finally {
       startingRef.current = false;
     }
@@ -75,20 +77,22 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
 
   async function handleToggleClick() {
     if (startingRef.current) return;
-    const melody = ensureMelody();
-
-    if (playing && melody.isRunning()) {
-      userPausedRef.current = true;
-      melody.pause();
-      setPlaying(false);
-      return;
-    }
-
-    userPausedRef.current = false;
     startingRef.current = true;
     try {
+      const melody = ensureMelody();
+
+      if (playing && melody.isRunning()) {
+        userPausedRef.current = true;
+        melody.pause();
+        setPlaying(false);
+        return;
+      }
+
+      userPausedRef.current = false;
       await melody.play();
       setPlaying(true);
+    } catch (err) {
+      console.error("No se pudo reproducir la música:", err);
     } finally {
       startingRef.current = false;
     }

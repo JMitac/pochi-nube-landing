@@ -34,7 +34,10 @@ const MELODY = [
  */
 export function createMelody() {
   const volume = new Tone.Volume(-Infinity).toDestination();
-  const reverb = new Tone.Reverb({ decay: 4.5, wet: 0.35 }).connect(volume);
+  // Freeverb es un reverb algorítmico (filtros comb/allpass) en vez de uno
+  // por convolución: no depende de renderizar un OfflineAudioContext al
+  // crearse, que es un punto conocido de fallas/incompatibilidad en Safari/iOS.
+  const reverb = new Tone.Freeverb({ roomSize: 0.8, dampening: 3000, wet: 0.35 }).connect(volume);
   const chorus = new Tone.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.4, wet: 0.25 })
     .connect(reverb)
     .start();
