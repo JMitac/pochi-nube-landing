@@ -109,20 +109,6 @@ export function createMelody() {
     isRunning() {
       return Tone.getContext().state === "running" && Tone.getTransport().state === "started";
     },
-    isClosed() {
-      return Tone.getContext().state === "closed";
-    },
-    diagnose() {
-      const ctx = Tone.getContext().rawContext;
-      return {
-        contextState: Tone.getContext().state,
-        rawState: ctx.state,
-        sampleRate: ctx.sampleRate,
-        baseLatency: ctx.baseLatency,
-        transportState: Tone.getTransport().state,
-        volumeDb: Number.isFinite(volume.volume.value) ? volume.volume.value : String(volume.volume.value),
-      };
-    },
     onContextStateChange(callback) {
       const context = Tone.getContext();
       context.on("statechange", callback);
