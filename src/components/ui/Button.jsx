@@ -11,6 +11,7 @@ const SIZE_CLASSES = {
 
 export default function Button({
   href,
+  onClick,
   children,
   icon,
   variant = "primary",
@@ -18,13 +19,21 @@ export default function Button({
   breathe = false,
   className = "",
 }) {
+  const classes = `press ${breathe ? "breathe" : ""} inline-flex items-center gap-3 border-ink font-display font-extrabold leading-none no-underline text-ink ${VARIANT_BG[variant] ?? VARIANT_BG.primary} ${SIZE_CLASSES[size] ?? SIZE_CLASSES.lg} ${className}`;
+
+  if (href) {
+    return (
+      <a href={href} className={classes}>
+        {icon}
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <a
-      href={href}
-      className={`press ${breathe ? "breathe" : ""} inline-flex items-center gap-3 border-ink font-display font-extrabold leading-none no-underline text-ink ${VARIANT_BG[variant] ?? VARIANT_BG.primary} ${SIZE_CLASSES[size] ?? SIZE_CLASSES.lg} ${className}`}
-    >
+    <button type="button" onClick={onClick} className={classes}>
       {icon}
       {children}
-    </a>
+    </button>
   );
 }
