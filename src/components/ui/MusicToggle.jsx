@@ -14,10 +14,11 @@ import { createMelody } from "../../audio/melody";
 // melodía después de la primera vuelta. Por eso dejamos los listeners
 // activos para siempre (nunca se desconectan) y también reintentamos cuando
 // la pestaña vuelve a estar visible.
-const FIRST_INTERACTION_EVENTS = ["pointerdown", "keydown", "touchstart"];
+const FIRST_INTERACTION_EVENTS = ["pointerdown", "keydown", "touchstart", "touchend", "click"];
 
 export default function MusicToggle({ label = "Nuestra canción" }) {
   const [playing, setPlaying] = useState(false);
+  const [debugInfo, setDebugInfo] = useState("");
   const melodyRef = useRef(null);
   const startingRef = useRef(false);
   const userPausedRef = useRef(false);
@@ -41,11 +42,13 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
       const melody = ensureMelody();
       await melody.play();
       setPlaying(true);
+      setDebugInfo(`auto ok: ${JSON.stringify(melody.diagnose())}`);
     } catch (err) {
       // El navegador todavía no lo permite (o la creación del audio falló);
       // lo dejamos en consola para poder diagnosticarlo y seguimos
       // esperando la próxima interacción.
       console.error("No se pudo iniciar la música automáticamente:", err);
+      setDebugInfo(`auto error: ${err?.message || err}`);
     } finally {
       startingRef.current = false;
     }
@@ -91,14 +94,25 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
       userPausedRef.current = false;
       await melody.play();
       setPlaying(true);
+      setDebugInfo(`tap ok: ${JSON.stringify(melody.diagnose())}`);
     } catch (err) {
       console.error("No se pudo reproducir la música:", err);
+      setDebugInfo(`tap error: ${err?.message || err}`);
     } finally {
       startingRef.current = false;
     }
   }
 
   return (
+    <>
+      {debugInfo && (
+        <pre
+          onClick={() => setDebugInfo("")}
+          className="fixed bottom-24 right-5 left-5 z-50 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl border-2 border-ink bg-cream/95 p-2 text-[10px] leading-tight text-ink"
+        >
+          {debugInfo}
+        </pre>
+      )}
     <button
       type="button"
       data-music-toggle
@@ -136,5 +150,6 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
         )}
       </svg>
     </button>
+    </>
   );
 }
