@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createMelody } from "../../audio/melody";
 
 // Los navegadores bloquean el audio con sonido hasta que la persona
 // interactúa con la página (política de autoplay) — intentar reproducir sin
@@ -7,33 +8,42 @@ import { useEffect, useRef, useState } from "react";
 // cualquier parte de la página, para que se sienta automático sin que tenga
 // que encontrar el botón. ("scroll" no cuenta como gesto para los
 // navegadores, así que no lo usamos como disparador.)
+//
+// En celulares, además, el sistema operativo suspende el audio al bloquear
+// la pantalla o cambiar de app — sin avisarle a React — y eso cortaba la
+// melodía después de la primera vuelta. Por eso dejamos los listeners
+// activos para siempre (nunca se desconectan) y también reintentamos cuando
+// la pestaña vuelve a estar visible.
 const FIRST_INTERACTION_EVENTS = ["pointerdown", "keydown", "touchstart"];
 
 export default function MusicToggle({ label = "Nuestra canción" }) {
   const [playing, setPlaying] = useState(false);
   const melodyRef = useRef(null);
   const startingRef = useRef(false);
-  const startedRef = useRef(false);
+  const userPausedRef = useRef(false);
 
-  async function ensureMelody() {
+  function ensureMelody() {
     if (!melodyRef.current) {
-      const { createMelody } = await import("../../audio/melody");
-      melodyRef.current = createMelody();
+      const melody = createMelody();
+      melody.onContextStateChange((state) => {
+        if (state !== "running") setPlaying(false);
+      });
+      melodyRef.current = melody;
     }
     return melodyRef.current;
   }
 
-  async function startMelody() {
-    if (startedRef.current || startingRef.current) return;
+  async function tryResume() {
+    if (startingRef.current || userPausedRef.current) return;
+    if (melodyRef.current?.isRunning()) return;
     startingRef.current = true;
     try {
-      const melody = await ensureMelody();
+      const melody = ensureMelody();
       await melody.play();
-      startedRef.current = true;
       setPlaying(true);
     } catch {
-      // El gesto no alcanzó para desbloquear el audio; los listeners
-      // siguen activos para reintentar en la próxima interacción.
+      // El navegador todavía no lo permite; seguimos esperando la
+      // próxima interacción.
     } finally {
       startingRef.current = false;
     }
@@ -41,38 +51,46 @@ export default function MusicToggle({ label = "Nuestra canción" }) {
 
   useEffect(() => {
     function onFirstInteraction(event) {
-      if (startedRef.current) return;
       if (event.target.closest?.("[data-music-toggle]")) return;
-      startMelody();
+      tryResume();
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") tryResume();
     }
 
     FIRST_INTERACTION_EVENTS.forEach((type) =>
       window.addEventListener(type, onFirstInteraction, { passive: true })
     );
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       FIRST_INTERACTION_EVENTS.forEach((type) =>
         window.removeEventListener(type, onFirstInteraction)
       );
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       melodyRef.current?.dispose();
     };
   }, []);
 
   async function handleToggleClick() {
     if (startingRef.current) return;
+    const melody = ensureMelody();
 
-    if (!startedRef.current) {
-      await startMelody();
+    if (playing && melody.isRunning()) {
+      userPausedRef.current = true;
+      melody.pause();
+      setPlaying(false);
       return;
     }
 
-    const melody = await ensureMelody();
-    if (playing) {
-      melody.pause();
-      setPlaying(false);
-    } else {
+    userPausedRef.current = false;
+    startingRef.current = true;
+    try {
       await melody.play();
       setPlaying(true);
+    } finally {
+      startingRef.current = false;
     }
   }
 

@@ -58,8 +58,8 @@ export function createMelody() {
   }).connect(reverb);
   lead.volume.value = -3;
 
-  Tone.Transport.bpm.value = 72;
-  Tone.Transport.timeSignature = [4, 4];
+  Tone.getTransport().bpm.value = 72;
+  Tone.getTransport().timeSignature = [4, 4];
 
   const chordSeq = new Tone.Sequence(
     (time, chord) => {
@@ -81,19 +81,38 @@ export function createMelody() {
 
   return {
     async play() {
+      // Idempotente: si ya está sonando (p. ej. el sistema operativo suspendió
+      // y reanudó el audio al volver de segundo plano) no reinicia el compás,
+      // solo nos aseguramos de que el volumen esté audible.
       await Tone.start();
       const now = Tone.now();
       volume.volume.cancelScheduledValues(now);
       volume.volume.setValueAtTime(volume.volume.value, now);
       volume.volume.linearRampToValueAtTime(-8, now + 0.8);
-      Tone.Transport.start();
+      if (Tone.getTransport().state !== "started") {
+        Tone.getTransport().start();
+      }
     },
     pause() {
       const now = Tone.now();
       volume.volume.cancelScheduledValues(now);
       volume.volume.setValueAtTime(volume.volume.value, now);
       volume.volume.linearRampToValueAtTime(-Infinity, now + 0.4);
-      window.setTimeout(() => Tone.Transport.pause(), 420);
+      window.setTimeout(() => Tone.getTransport().pause(), 420);
+    },
+    // El sistema operativo (sobre todo en celulares) puede suspender el
+    // audio al bloquear la pantalla o cambiar de app sin avisarle a React;
+    // esto deja que quien use el módulo verifique/reaccione a eso.
+    isRunning() {
+      return Tone.getContext().state === "running" && Tone.getTransport().state === "started";
+    },
+    isClosed() {
+      return Tone.getContext().state === "closed";
+    },
+    onContextStateChange(callback) {
+      const context = Tone.getContext();
+      context.on("statechange", callback);
+      return () => context.off("statechange", callback);
     },
     dispose() {
       if (disposed) return;
@@ -105,8 +124,8 @@ export function createMelody() {
       chorus.dispose();
       reverb.dispose();
       volume.dispose();
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      Tone.getTransport().stop();
+      Tone.getTransport().cancel();
     },
   };
 }
